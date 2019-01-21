@@ -1,0 +1,205 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>Percentage of periods</title>
+    <metacontent="charset=utf-8">
+    <style type="text/css">
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: Verdana;
+        font-size: 1.1em;
+      }
+      body{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        /* min-width, min-height - set when the window is opened/reloaded */
+      }
+      p {
+        margin: 0;
+      }
+      
+      .container {
+        display: flex;
+        flex-flow: column;
+        /*border: 1px solid grey;*/
+        /* width, height - set when the window is opened/reloaded */
+      }
+      .container .header {
+        flex: 0 1 auto;
+        margin: 10px 10px 0;
+        padding: 5px;
+        border: 1px solid grey;
+      }
+      .container .content {
+        flex: 1 1 auto;
+        margin: 10px 10px 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .container .footer {
+        flex: 0 1 auto;
+        margin: 10px 10px 0;
+        padding: 5px;
+        border-top: 1px solid grey;
+      }
+      .content .bar {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50px;
+        margin-bottom: 10px;
+        border: 1px solid black;
+        border-radius: 10px;
+        width: 100%;
+        background-color: rgba(200,200,200,0.2);
+        cursor: pointer;
+      }
+      .footer a {
+        color: black;
+      }
+
+      .content .bar-active {
+        height: 100px;
+        /*background-color: rgba(200,200,200,0.8);*/
+        background: linear-gradient(to right, rgba(175,175,175,1) 0%, rgba(200,200,200,0.8) 0%);
+        /*align-self: center;*/
+      }
+    </style>
+   </head>
+
+  <body>
+
+    <div id="container" class="container">
+
+      <!-- <div class="header">
+        <p align="center"><b>header</b></p>
+      </div> -->
+
+      <div class=" content">
+        <div class="bar" id="bar0"><span id="bar0"></span>Minute</div>
+        <div class="bar" id="bar1"><span id="bar1"></span>Hour</div>
+        <div class="bar" id="bar2"><span id="span_bar2"></span>Day</div>
+        <div class="bar" id="bar3"><span id="bar3"></span>Week</div>
+        <div class="bar" id="bar4"><span id="bar4"></span>Month</div>
+        <div class="bar" id="bar5"><span id="bar5"></span>Decade</div>
+        <div class="bar" id="bar6"><span id="bar6"></span>Year</div>
+        <div class="bar" id="bar7"><span id="bar7"></span>10-Year</div>
+        <div class="bar" id="bar8"><span id="bar8"></span>25-Year</div>
+        <!-- <div class="bar" id="bar">Life?</div> -->
+      </div>
+
+      <div class="footer">
+        <p align="center">by <a href="http://www.budladislav.info/">Budladislav</a> jan.2019</p>
+      </div>
+
+    </div>
+
+    <script type="text/javascript" src="jquery-3.3.1.min.js"></script>
+    <script type="text/javascript">
+      'use strict';
+
+    /* GLOBAL VARIABLES */
+      let o_GlobalVariables = {
+        aBarsType: ['minute', 'hour', 'day','week','month','decade','year',
+          '10year','25year'],
+        aBars: []
+      }
+
+    /* GLOBAL VARIABLES end */
+
+    /* FUNCTIONS */
+
+      //setup 
+      let fSetInterface = () => {
+        let e_GameContainer = document.getElementById('container');
+        let n_WindowWidth = document.documentElement.clientWidth;
+        let n_WindowHeight = document.documentElement.clientHeight;
+        let n_ContainerWidth;
+        let n_ContainerHeight;
+
+        if (n_WindowWidth > 500 && n_WindowHeight > 500){
+          n_ContainerWidth = n_WindowWidth * 0.975;
+          n_ContainerHeight = n_WindowHeight * 0.975;
+        } else {
+          n_ContainerWidth = 500;
+          n_ContainerHeight = 500;
+        }
+
+        $('body').css({
+          'min-width' : n_ContainerWidth + 'px',
+          'min-height' : n_ContainerHeight + 'px'
+        });
+
+        $('#container').css({
+          'width' : n_ContainerWidth + 'px',
+          'height' : n_ContainerHeight + 'px'
+        });
+      }
+      
+    /* FUNCTIONS end */
+
+    /* CONSTRUCTORS */
+      let Bar = function(type) {
+        this.percent = this.getPersent(type);
+        this.activeMessage = this.percent + '% of current ';
+      }
+
+    /* CONSTRUCTORS end */
+
+    /* PROTOTYPE METHODS */
+    Date.prototype.daysInMonth = function() {
+      return 33 - new Date(this.getFullYear(), this.getMonth(), 33).getDate();
+    };
+
+    Bar.prototype.getPersent = function(type){
+      let dDate = new Date();
+      let nDay = dDate.getDate(); //1-31
+      let nMonth = dDate.getMonth(); //0-11
+      let nYear = dDate.getFullYear();
+      let nDaysInCurrentMonth = dDate.daysInMonth();
+      
+      //console.log(dDate.getDate());
+      switch (type) {
+        case 'day':{
+          return ((nDay / nDaysInCurrentMonth) * 100).toFixed(2);
+        };
+        default : {
+          return 50;
+        }
+      }
+    }
+    /* PROTOTYPE METHODS end */
+
+    /* MAIN CODE */
+      fSetInterface();
+      // let dDate = new Date();
+      // console.log(dDate.getMonth());
+
+      for (let i = 0; i < o_GlobalVariables.aBarsType.length; i++){
+        o_GlobalVariables.aBars[i] = new Bar(o_GlobalVariables.aBarsType[i]);
+        // console.log(o_GlobalVariables.aBars[i]);
+      }
+
+
+
+      $('#bar2').addClass('bar-active');
+      $('#bar2').css('background',`linear-gradient(to right, rgba(175,175,175,1) ${o_GlobalVariables.aBars[2].percent}%, rgba(200,200,200,0.8) 0%)`);
+      $('#span_bar2').text(o_GlobalVariables.aBars[2].activeMessage);
+
+
+
+
+
+
+    /* MAIN CODE end */
+
+
+    </script>
+
+  </body>
+</html>
