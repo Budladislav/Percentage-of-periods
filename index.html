@@ -77,9 +77,31 @@
         
         /*height, margin-bottom - set when the window is opened/reloaded */
       }
+      .content .bar:hover {
+        border: 1px solid black;
+        box-shadow: 0px 0px 10px 1px rgba(0,0,0,0.75);
+      }
+      .content .bar:active {
+        box-shadow: 0px 0px 15px 2px rgba(0,0,0,0.75);
+      }
 
       .footer a {
         color: black;
+        text-decoration: none;
+        border-bottom: 1px solid black;
+      }
+      .footer a:hover {
+        color: black;
+        border: 1px solid black;
+        padding: 1px;
+        transition: 0.1s;
+      }
+      .footer a:active {
+        color: black;
+        background: orange;
+        border-radius: 10px;
+        padding: 2px;
+        border: 1px solid black;
       }
       .content .bar-active { /* flex: height occupies all free space of .content */
         border: 1px solid blue;
@@ -87,6 +109,9 @@
         background-color: rgba(200,200,200,0.8);
         
         /*height - all free space of .content except non-active bar */
+      }
+      .content .bar-active:hover {
+        border: 1px dotted blue;
       }
     </style>
    </head>
@@ -96,17 +121,17 @@
     <div id="container">
 
       <div class="header idents">
-        <p><b>Percentage of periodss</b></p>
+        <p><b><span id="date"></span></b></p>
       </div>
 
-      <div class="content">
-        <div class="bar" id="bar0"><p><span id="span_bar0"></span>Minute</p></div>
-        <div class="bar" id="bar1"><p><span id="span_bar1"></span>Hour</p></div>
-        <div class="bar" id="bar2"><p><span id="span_bar2"></span>Day</p></div>
-        <div class="bar" id="bar3"><p><span id="span_bar3"></span>Week</p></div>
-        <div class="bar" id="bar4"><p><span id="span_bar4"></span>Month</p></div>
-        <div class="bar" id="bar5"><p><span id="span_bar5"></span>Quarter</p></div>
-        <div class="bar" id="bar6"><p><span id="span_bar6"></span>Year</p></div>
+      <div class="content" id="content">
+        <div class="bar" id="bar0"><p><span id="span_bar0"></span>Minute</p></div> <!-- secunde (1sec-update) -->
+        <div class="bar" id="bar1"><p><span id="span_bar1"></span>Hour</p></div> <!-- minutes + secs (minute-update) -->
+        <div class="bar" id="bar2"><p><span id="span_bar2"></span>Day</p></div> <!-- hours+minutes (15minutes-update) -->
+        <div class="bar" id="bar3"><p><span id="span_bar3"></span>Week</p></div> <!-- day+hour (static) -->
+        <div class="bar" id="bar4"><p><span id="span_bar4"></span>Month</p></div> <!-- in days (static) -->
+        <!-- <div class="bar" id="bar5"><p><span id="span_bar5"></span>Quarter</p></div>  in days (static) --> 
+        <div class="bar" id="bar5"><p><span id="span_bar5"></span>Year</p></div> <!-- in days (static) -->
     <!--<div class="bar" id="bar7"><p><span id="span_bar7"></span>Decade</p></div>
         <div class="bar" id="bar8"><p><span id="span_bar8"></span>25-Year</p></div>
         <div class="bar" id="bar9"><p><span id="span_bar9"></span>Century?</p></div> 
@@ -126,14 +151,10 @@
     /* GLOBAL VARIABLES */
       let o_GlobalVariables = {
         //used for construct different kinds of object Bar
-        aBarsType: ['0_minute', '1_hour', '2_day','3_week','4_month','5_quarter',
-          '6_year'], //first char - number of bar id
-        aBars: [], // array with all Bar objects
-
-        /* temporary values used for forbidding use events before animation of fill ends.
-          remove them when all bars percentage counting will work*/
-        lastNonZeroBar: 4, //manual. Menans last work index of array aBarsType
-        bAllowEvents: false
+        aBarsType: ['0_minute', '1_hour', '2_day','3_week','4_month',
+          '5_year'], //first char - number of bar id
+        aBars: [] // array with all Bar objects
+        // bAllowEvents: false
       }
 
     /* GLOBAL VARIABLES end */
@@ -145,21 +166,18 @@
         this.barId = this.bar.id;
         this.span = document.getElementById(`span_bar${this.barIdNum}`);  
 
-        //Manual, temporary. remove when active condition determined by localStorage var
-        if (this.barIdNum === '3'){
+        //localStorage['lsState'] keeps state (Id num of last active bar)
+        //if there are not active bars 'lsState' will be undefined or -1
+        if (this.barIdNum === localStorage['lsState']){
           this.active = true;
-        }
-
-        //Manual, temporary. remove when all bars percentage counting will work
-        if (this.barIdNum === '3' || this.barIdNum === '4'){
-          this.work = true;
+          this.activateBar(); 
         }
 
         this.percent = this.getPersent(type); //each type of Bar has own %
         this.percent = +this.percent.toFixed(2); 
         this.activeMessage = this.percent + '% of current ';
 
-        this.percentVisualSet(); // animate 'progress' of bar
+        // this.percentVisualSet(); // animate 'progress' of bar //bAllowEvents: return false
       }
 
     /* CONSTRUCTORS end */
@@ -170,33 +188,156 @@
 
     /* PROTOTYPE METHODS */
 
-      //new proto method for Date(), return days in the month. Get it from habr
+      //test
+      /*new proto method for Date(), return days in the month. From stackowerflow
+      Trick: Date() with 0 day return date with  last day of previous month.
+      So to get count of days in current month need to check
+      Date (CurrentYear,NextMonth,0); */
       Date.prototype.daysInMonth = function() {
-        return 33 - new Date(this.getFullYear(), this.getMonth(), 33).getDate();
+        return new Date(this.getFullYear(), this.getMonth() + 1, 0).getDate(); 
       };
+
+      //return number day of current year (no leap year - 365 / leap year - 366)
+      Date.prototype.daysInYear = function(){
+        let lastDayOfFebruary = new Date(this.getFullYear(),2,0).getDate();
+        let result = (lastDayOfFebruary === 29) ? 366 : 365;
+        return result;
+      }
+
+
+      //return number of past days of current Year (0-365).
+      //f.e. if today 2 february - return 32 
+      Date.prototype.pastDaysOfYear = function(){
+        let DateOfFirstDayOfYear = new Date(this.getFullYear(),0,1);
+        let DateOfCurrentDay = new Date(this.getFullYear(),this.getMonth(),this.getDate());
+        let NumberOfPastDaysOfYearInMs = DateOfCurrentDay - DateOfFirstDayOfYear;
+        // 86400000 - 1 day in ms
+        return NumberOfPastDaysOfYearInMs/86400000;
+      }
 
       //return % for current type bar
       Bar.prototype.getPersent = function(type){
-        let dDate = new Date();
-        let nDay = dDate.getDate(); //1-31
-        let nDayOfWeek = dDate.getDay(); //1-7
-        let nMonth = dDate.getMonth(); //0-11
-        let nYear = dDate.getFullYear(); //2019 f.e.
-        let nDaysInCurrentMonth = dDate.daysInMonth();
-
-        if (this.active){
-          this.activateBar(); 
-        }
-
         switch (type) {
+          case '0_minute':
+            this.updateMinutePercent(); /*(1sec-update)*/
+            return this.getMinutePercent();
+          case '1_hour':
+            this.updateHourPercent(); /*(minute-update)*/
+            return this.getHourPercent();
+          case '2_day':
+            this.updateDayPercent(); /*(15-minutes-update)*/
+            return this.getDayPercent();
           case '3_week':
-            return (nDayOfWeek / 7) * 100;
+            return this.getWeekPercent();
           case '4_month':
-            return (nDay / nDaysInCurrentMonth) * 100;
-          default : 
-            return 0;
+            return this.getMonthPercent();
+          case '5_year':
+            return this.fGetYearPercent();
         }
       }
+
+      /*Receive a fractional number of percent, rounds it to 2 decimal places, 
+      update % of gradient on bar and change num in span message if bar active*/
+      Bar.prototype.updateFillingOfBar = function(percent = 1){
+        $(this.bar).css('background',`linear-gradient(to right,` +
+            ` rgba(175,175,175,1) ${percent.toFixed(2)}%,` +
+            ` rgba(200,200,200,0.2) 0%)`);
+        if (this.active){
+          $(this.span).text(percent.toFixed(2) + '% of current ');
+        }
+      }
+
+      /*return a percent of past piece of current minute (current seconds / 60 seconds*/
+      Bar.prototype.getMinutePercent = function(){
+        let nCurrentSecond = new Date().getSeconds(); //0-59
+        return nCurrentSecond / 60 * 100;
+      }
+
+      //Updating filling of bar and text in span of bar if it active every second
+      Bar.prototype.updateMinutePercent = function(){
+        let nCurrentPercent = this.getMinutePercent();
+        this.updateFillingOfBar(nCurrentPercent);
+
+        setInterval(()=>{
+          nCurrentPercent = this.getMinutePercent();
+          this.updateFillingOfBar(nCurrentPercent);
+        },1000)
+      }
+
+      /*return a percent of past piece of current hour (current minutes
+        / 60 (minutes) + additional percent of past secons of current minute) */
+      Bar.prototype.getHourPercent = function(){
+        let nCurrentMinute = new Date().getMinutes(); //0-59
+        let nAdditionalPersentOfCurrentMinute = this.getMinutePercent() / 100 / 60;
+        return (nCurrentMinute / 60 + nAdditionalPersentOfCurrentMinute) * 100;
+      }
+
+      //Updating filling of bar and text in span of bar if it active every minute
+      Bar.prototype.updateHourPercent = function(){
+        let nCurrentPercent = this.getHourPercent();
+        this.updateFillingOfBar(nCurrentPercent);
+
+        setInterval(()=>{
+          nCurrentPercent = this.getHourPercent();
+          this.updateFillingOfBar(nCurrentPercent);
+        },60000) //update every 1 minute
+      }
+
+      /*return a percent of past piece of current day (current hours
+        / 24 (hours) + additional percent of past minutes of current hour) */
+      Bar.prototype.getDayPercent = function(){
+        let nCurrentHour = new Date().getHours(); //0-23
+        let nAdditionalPersentOfCurrentHour = this.getHourPercent() / 100 / 24;
+        return (nCurrentHour / 24 + nAdditionalPersentOfCurrentHour) * 100;
+      }
+
+      //Updating filling of bar and text in span of bar if it active every 15 minutes
+      Bar.prototype.updateDayPercent = function(){
+        let nCurrentPercent = this.getDayPercent();
+        this.updateFillingOfBar(nCurrentPercent);
+
+        setInterval(()=>{
+          nCurrentPercent = this.getDayPercent();
+          this.updateFillingOfBar(nCurrentPercent);
+        },900000) //update every 15 minutes
+      }
+
+      /*return a percent of past piece of current Week (current day of week
+        / 7 (days) + additional percent of past hours of current day) */
+      Bar.prototype.getWeekPercent = function(){
+        let nCurrentDayOfWeek = new Date().getDay(); //0-6
+        let nAdditionalPersentOfCurrentDay = this.getDayPercent() / 100 / 7;
+        let nWeekPercent = (nCurrentDayOfWeek / 7 + nAdditionalPersentOfCurrentDay) * 100;
+        this.updateFillingOfBar(nWeekPercent);
+        return nWeekPercent;
+      }
+
+      /*return a percent of past piece of current Month (current day of month
+        / days of current month + additional percent of past hours of current day) */
+      Bar.prototype.getMonthPercent = function(){
+        let nCurrentDayOfMonth = new Date().getDate() - 1; //0-30 (test)
+        let nDaysInCurrentMonth = new Date().daysInMonth(); //28-31
+        let nAdditionalPersentOfCurrentDay = this.getDayPercent() / 100 / nDaysInCurrentMonth;
+        let nMonthPercent = (nCurrentDayOfMonth / nDaysInCurrentMonth
+          + nAdditionalPersentOfCurrentDay) * 100;
+        this.updateFillingOfBar(nMonthPercent);
+        return nMonthPercent;
+      }
+
+      /*return a percent of past piece of current Year (current month
+        / 12 (month) + additional percent of past days of current month) */
+      Bar.prototype.fGetYearPercent = function(){
+        let timeStamp = new Date();
+        let nNumOfPastDaysOfYear = timeStamp.pastDaysOfYear(); //0-365
+        let nDaysInCurrentYear = timeStamp.daysInYear(); //365 or 366 if leap year
+        let nAdditionalPersentOfCurrentDay = this.getDayPercent() / 100 / nDaysInCurrentYear;
+        let nYearPercent = (nNumOfPastDaysOfYear / nDaysInCurrentYear
+          + nAdditionalPersentOfCurrentDay) * 100;
+        this.updateFillingOfBar(nYearPercent);
+        return nYearPercent;
+      }
+
+
       // animate 'progress' of bar
       Bar.prototype.percentVisualSet = function(){
         let nOnePercentOfCurrentPercent = +(this.percent / 100);
@@ -206,13 +347,6 @@
         //until nCurrentPercent <= this.percent,
         //linear-gradient incerease by 1% of this.percent, and change span text
         nIntervalId = setInterval(()=>{
-          //temporary workaround, remove text for non-worked bar spans
-          if(this.percent === 0){
-            $(this.span).text('');
-            clearInterval(nIntervalId);
-            return;
-          }
-
 
           $(this.bar).css('background',`linear-gradient(to right,` +
             ` rgba(175,175,175,1) ${nCurrentPercent.toFixed(2)}%,` +
@@ -227,34 +361,41 @@
               $(this.span).text(this.activeMessage);
             }
 
-            //temporary, remove when all bars persent count will finished
             //after last fill animation ends - allow events
-            if (+this.barIdNum === o_GlobalVariables.lastNonZeroBar){
+            if (+this.barIdNum === o_GlobalVariables.aBarsType.length - 1){
               o_GlobalVariables.bAllowEvents = true;
             }
           }
-        },8);
+        },10);
       }
 
       //change appearance and text of bar
       Bar.prototype.activateBar = function(){
         $(this.bar).addClass('bar-active');
-        //$(this.span).text(this.activeMessage)
-
-        //temporary check on work
-        if (this.work){
-          $(this.span).text(this.activeMessage);
-        } else{
-          $(this.span).text('"in progress" ');
-        }
-        
+        $(this.span).text(this.activeMessage)
+        this.active = true;
+        localStorage['lsState'] = this.barIdNum; //numbers of id - bar with that id active
       }
 
       //change appearance and text of bar to default. is it useble
-      // Bar.prototype.deactivateBar = function(){
-      //   $(this.bar).removeClass('bar-active');
-      //   $(this.span).text('');
-      // }
+      Bar.prototype.deactivateBar = function(){
+        if (this.active){
+          localStorage['lsState'] = -1; // -1 or undefined - initial state
+        }
+        
+        $(this.bar).removeClass('bar-active');
+        $(this.span).text('');
+        this.active = false;
+      }
+
+      /*
+      //return number of current quarter (1-4)
+      Date.prototype.quarter = function(){}
+      //return number of days of current quarter (90-92). test on leap years]
+      Date.prototype.daysInQuarter = function(){}
+      //return current day of current quarter (1-92). test on leap years]
+      Date.prototype.currentDayInQuarter = function(){}
+      */
 
     /* PROTOTYPE METHODS end */
 
@@ -301,14 +442,30 @@
           'height': n_BarHeight + 'px'
         });
 
+        $('.bar').last().css('margin-bottom','0px');
+
         //Set text bigger on mobile devices
         if (fIsMobile()){
           $('body').css('font-size','2em');
         }
+
+        fSetAndUpdateDateTime();
+      }
+
+      let fSetAndUpdateDateTime = () => {
+        let currentDateAndTime = new Date().toLocaleString();
+        $('#date').text(currentDateAndTime);
+        setInterval(()=>{
+          currentDateAndTime = new Date().toLocaleString(); //toLocaleString() or toUTCString()
+          $('#date').text(currentDateAndTime);
+        },1000);
+
       }
 
       //check is it device mobile (with touchscreen). True - mobile/ false - desctop
-      function fIsMobile() { return ('ontouchstart' in document.documentElement); }
+      let fIsMobile = () => {
+        return ('ontouchstart' in document.documentElement);
+      }
 
       let deactivateAllBars = (aBars) => {
         for (let i = 0; i < o_GlobalVariables.aBars.length; i++){
@@ -323,18 +480,22 @@
 
         //click on any bar. Deactivate all bars and activate clicked
         $('.bar').click((event)=>{
-          //temporary - remove when all bars count will be work
-          if (!o_GlobalVariables.bAllowEvents){ //don't do any if false
-            return;
-          }
-
+          // if (!o_GlobalVariables.bAllowEvents){ //don't do any if false
+          //   return;
+          // }
 
           let aOfBars = o_GlobalVariables.aBars
           deactivateAllBars(o_GlobalVariables.aBars);
           for (let i = aOfBars.length - 1; i >= 0; i--) {
             if (aOfBars[i].barId === event.target.id){
-              aOfBars[i].activateBar();
-              return;
+              if (aOfBars[i].active){
+                aOfBars[i].deactivateBar();
+                return;
+              } else {
+                aOfBars[i].activateBar();
+                return;                
+              }
+
             }
           }
         });
@@ -348,7 +509,6 @@
       for (let i = 0; i < o_GlobalVariables.aBarsType.length; i++){
         o_GlobalVariables.aBars[i] = new Bar(o_GlobalVariables.aBarsType[i]);
       }
-
     /* MAIN CODE end */
     </script>
 
